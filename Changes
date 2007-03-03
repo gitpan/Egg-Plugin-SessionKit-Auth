@@ -1,0 +1,15 @@
+Revision history for Perl extension Egg::Plugin::SessionKit::Auth.
+
+0.06  2007/03/02
+	- It improved to CPAN.
+
+0.05  2007/02/02
+	- It was made to correspond to Egg::Release-1.00.
+	  It doesn't operate in this correction and former version.
+
+0.02  2007/01/18
+	- The function to recognize HTTPS is added.
+
+0.01  Fri Jan 12 23:36:03 2007 GMT
+	- original version; created by Egg::Helper::PerlModuleMaker v0.02 with
+	  module name Egg-Plugin-SessionKit-Auth

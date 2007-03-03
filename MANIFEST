@@ -1,0 +1,15 @@
+Build.PL
+Changes
+lib/Egg/Plugin/SessionKit/Auth.pm
+lib/Egg/Plugin/SessionKit/Auth/Crypt/CBC.pm
+lib/Egg/Plugin/SessionKit/Auth/Crypt/Plain.pm
+lib/Egg/Plugin/SessionKit/Auth/DBI.pm
+lib/Egg/Plugin/SessionKit/Auth/DBIC.pm
+lib/Egg/Plugin/SessionKit/Auth/File.pm
+Makefile.PL
+MANIFEST			This list of files
+META.yml
+README
+t/00_use.t
+t/01_authorized.t
+t/89_pod.t
