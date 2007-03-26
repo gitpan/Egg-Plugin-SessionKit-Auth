@@ -3,7 +3,7 @@ package Egg::Plugin::SessionKit::Auth::Crypt::Plain;
 # Copyright (C) 2006 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>
 #
-# $Id: Plain.pm 115 2007-01-17 11:11:37Z lushe $
+# $Id: Plain.pm 70 2007-03-26 02:29:02Z lushe $
 #
 use strict;
 
@@ -31,6 +31,14 @@ Configuration.
     ...
     psw_crypt_type=> 'Plain',
     },
+
+=over 4
+
+=item psw_check,
+
+These methods are called from the base module.
+
+=back
 
 =head1 SEE ALSO
 

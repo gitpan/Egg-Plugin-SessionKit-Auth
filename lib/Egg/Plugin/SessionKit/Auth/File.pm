@@ -3,12 +3,12 @@ package Egg::Plugin::SessionKit::Auth::File;
 # Copyright (C) 2007 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: File.pm 269 2007-03-02 09:28:00Z lushe $
+# $Id: File.pm 70 2007-03-26 02:29:02Z lushe $
 #
 use strict;
 use base qw/Egg::Plugin::SessionKit::Auth/;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 sub setup {
 	my($e)= @_;
@@ -184,6 +184,11 @@ Please see L<Egg::Plugin::SessionKit::Auth> in detail.
 
 The attestation data corresponding to specified ID is returned by the HASH 
 reference.
+
+=head2 setup
+
+It is a method for the start preparation that is called from the controller of 
+the project. * Do not call it from the application.
 
 =head1 SEE ALSO
 

@@ -12,4 +12,6 @@ META.yml
 README
 t/00_use.t
 t/01_authorized.t
+t/87_pod_coverage.t
+t/88_perlcritic.t
 t/89_pod.t

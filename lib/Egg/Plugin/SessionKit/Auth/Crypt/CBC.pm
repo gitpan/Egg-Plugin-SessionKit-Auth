@@ -3,13 +3,13 @@ package Egg::Plugin::SessionKit::Auth::Crypt::CBC;
 # Copyright (C) 2006 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>
 #
-# $Id: CBC.pm 115 2007-01-17 11:11:37Z lushe $
+# $Id: CBC.pm 70 2007-03-26 02:29:02Z lushe $
 #
 use strict;
 use NEXT;
 use Error;
 
-our $VERSION= '0.01';
+our $VERSION= '0.02';
 
 sub startup {
 	my($class, $e, $aconf)= @_;
@@ -46,6 +46,14 @@ Configuration.
     },
 
 * Please see the document of Egg::Plugin::Crypt::CBC.
+
+=over 4
+
+=item startup, psw_check,
+
+These methods are called from the base module.
+
+=back
 
 =head1 SEE ALSO
 

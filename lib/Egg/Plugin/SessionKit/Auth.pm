@@ -3,13 +3,13 @@ package Egg::Plugin::SessionKit::Auth;
 # Copyright (C) 2007 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: Auth.pm 269 2007-03-02 09:28:00Z lushe $
+# $Id: Auth.pm 70 2007-03-26 02:29:02Z lushe $
 #
 use strict;
 use warnings;
 use base qw/Egg::Plugin::SessionKit/;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 sub setup {
 	my($e)= @_;
@@ -295,6 +295,11 @@ If this method is used, the mistake is reported at once.
   error_unactive
   error_discord_psw
   error_unset_psw
+
+=head2 setup
+
+It is a method for the start preparation that is called from the controller of 
+the project. * Do not call it from the application.
 
 =head1 SEE ALSO
 

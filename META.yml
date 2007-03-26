@@ -17,4 +17,4 @@ requires:
   Egg::Plugin::Crypt::CBC: 0.01
   Egg::Plugin::SessionKit: 0.07
   Egg::Release: 1.13
-version: 0.06
+version: 0.07
