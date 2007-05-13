@@ -1,199 +1,130 @@
 package Egg::Plugin::SessionKit::Auth::File;
 #
-# Copyright (C) 2007 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: File.pm 70 2007-03-26 02:29:02Z lushe $
+# $Id: File.pm 146 2007-05-13 18:50:08Z lushe $
 #
-use strict;
-use base qw/Egg::Plugin::SessionKit::Auth/;
-
-our $VERSION = '0.04';
-
-sub setup {
-	my($e)= @_;
-	my $sconf= $e->config->{plugin_session} ||= {};
-	my $aconf= $sconf->{auth} ||= {};
-	$aconf->{constant}
-	  || Egg::Error->throw(q/Please setup constant./);
-	ref($aconf->{constant}) eq 'ARRAY'
-	  || Egg::Error->throw(q/Please set constant by the ARRAY reference./);
-	$aconf->{data_path} || Egg::Error->throw(q/Please setup data_path./);
-	-f $aconf->{data_path}
-	  || Egg::Error->throw(qq/File not found : $aconf->{data_path}/);
-	$aconf->{uid_db_field}
-	  || Egg::Error->throw(q/Please setup uid_db_field./);
-	$aconf->{psw_db_field}
-	  || Egg::Error->throw(q/Please setup psw_db_field./);
-	$aconf->{separator} ||= "\t";
-	$e->global->{EGG_SESSION_AUTH_HANDLER} ||= __PACKAGE__.'::handler';
-	$e->SUPER::setup;
-}
-
-package Egg::Plugin::SessionKit::Auth::File::handler;
-use strict;
-use FileHandle;
-use base qw/Egg::Plugin::SessionKit::Auth::handler/;
-
-my @move_items= qw/constant uid_db_field psw_db_field data_path separator/;
-
-sub new {
-	my $auth= shift->SUPER::new(@_);
-	@{$auth}{@move_items}= @{$auth->config}{@move_items};
-	$auth->{active_db_field}= $auth->config->{active_db_field} || 0;
-	$auth;
-}
-sub login {
-	my($auth, $uid, $psw)= shift->get_login_argument(@_);
-	return 0 unless ($uid && $psw);
-	my $user = $auth->restore($uid)
-	  || return $auth->error_no_regist;
-	my $crypt= $user->{$auth->{psw_db_field}}
-	  || return $auth->error_unset_psw;
-	return $auth->error_unactive
-	  if ($auth->{active_db_field} && ! $user->{$auth->{active_db_field}});
-	return $auth->error_discord_psw
-	  unless $auth->psw_check($uid, $psw, $crypt);
-	$user->{$auth->{uid_param_name}}= $user->{$auth->{uid_db_field}};
-	$auth->session->{auth_data}= $user;
-	$auth->e->debug_out("# + session auth : Login is succeed.");
-	return $user;
-}
-sub restore {
-	my $auth = shift;
-	my $uid  = shift || Egg::Error->throw(q/I want 'uid'/);
-	my $uname= shift || $auth->{uid_db_field};
-	my $separ= shift || $auth->{separator};
-	my $const= shift || $auth->{constant};
-	my $fh= FileHandle->new($auth->{data_path}) || Egg::Error->throw($!);
-	while (my $line= $fh->getline) {
-		chomp($line);
-		my %user;
-		@user{@$const}= split /$separ/, $line;
-		if ($user{$uname} && $user{$uname} eq $uid) {
-			$auth->e->debug_out("# + session auth : restore member is succeed.");
-			return \%user;
-		}
-	}
-	$fh->close;
-	return 0;
-}
-
-1;
-
-__END__
 
 =head1 NAME
 
-Egg::Plugin::SessionKit::Auth::File - It authentication it based on the data of the file.
+Egg::Plugin::SessionKit::Auth::File - It attests it by the text data.
 
 =head1 SYNOPSIS
 
-  package MYPROJECT;
-  use strict;
-  use Egg qw/Plugin::SessionKit::Auth::File/;
-
-Configuration.
-
-  plugin_session=> {
+  use Egg qw/ SessionKit::Auth::File /;
+  __PACKAGE__->egg_startup(
+    .......
     ...
-    ...
-    auth=> {
+    plugin_session=> {
+      data_path => '<$e.dir.etc>/members.txt',
+      separator => "\s+",
+      constant  => [qw/ uid psw active email nickname /],
+      .......
       ...
-      ...
-      data_path      => '/path/to/user_data',
-      uid_db_field   => 'user_id',
-      psw_db_field   => 'password',
-      active_db_field=> 'active',
-      separator      => ':',
-      constant=> [qw/user_id password active email nickname ... etc. /],
-    },
-  },
+      },
 
 =head1 DESCRIPTION
 
-It authentication it based on the data managed with the file.
+The text file base is attested by L<Egg::Plugin::SessionKit::Auth>.
 
-For instance, data structures of the following TSV types are assumed.
-
-  foo	12345	1	foo@domain	foofoo
-  baa	12345	1	baa@domain	baabaa
-  zuu	12345	0	zuu@domain	zuuzuu
+Please refer to the document of L<Egg::Plugin::SessionKit::Auth>.
 
 =head1 CONFIGURATION
 
 =head2 data_path
 
-Path of data file.
+PATH of text file used as attestation data.
 
-B<Default is none.>,  Undefined is an error.
+Please set default.
 
 =head2 separator
 
-Delimiter of each data.
+Regular expression used for delimiter of data.
 
-B<Default is "\t">
+For instance, if they are the following data, '\:' is set.
+
+  user1:pasword1:....
+  user2:pasword2:....
+
+It is '\s+\:\s+' if there is a possibility that the blank mixes with the 
+delimitation.
+
+  user1  :  pasword1  :  ....
+  user2  :  pasword2  :  ....
+
+Default is '\t'.
 
 =head2 constant
 
-ARRAY divided by 'separator' ties by the name.
+List of name that allocates delimited data.
 
-  foo	12345	1	foo@domain	foofoo
+  constant => [qw/ member_code uid psw active age address ... /],
 
-  constant=> [qw/uid psw active email nickname/],
+=cut
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit::Auth/;
 
-This is developed as follows.
+our $VERSION = '2.00';
 
-  $user->{uid}       -> foo
-  $user->{psw}       -> 12345
-  $user->{active}    -> 1
-  $user->{email}     -> foo@domain
-  $user->{nickname}  -> foofoo
+sub _setup {
+	my($e)= @_;
+	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';
+	$e->SUPER::_setup;
+}
 
-B<Default is none.>,  Undefined is an error.
-
-=head2 uid_db_field
-
-Name of id field
-
-B<Default is none.>, Undefined is an error.
-
-=head2 psw_db_field
-
-B<Default is none.>, Undefined is an error.
-
-=head2 active_db_field
-
-Field name to judge whether acquired data is effective.
-This is evaluated only when defined.
-
-For instance, if this field is undefined even if succeeding in the acquisition of data because 
-of the inquiry of $e->auth->login, false is returned.
-
-B<Default is none.>
+package Egg::Plugin::SessionKit::Auth::File::handler;
+use strict;
+use warnings;
+use Carp qw/croak/;
+use base qw/Egg::Plugin::SessionKit::Auth::handler/;
 
 =head1 METHODS
 
-=head2 $e->auth->login
+=cut
+sub _startup {
+	my($class, $e, $conf)= @_;
+	$class->_initialize($conf);
+	$conf->{constant} || die q{ Please setup constant. };
+	ref($conf->{constant}) eq 'ARRAY'
+	   || die q{ Please set constant by the ARRAY reference. };
+	$conf->{data_path}    || die qq{ Please setup data_path. };
+	-f $conf->{data_path} || die qq{ File not found : $conf->{data_path} };
+	$conf->{separator} ||= "\t";
+	$class->SUPER::_startup($e, $conf);
+}
 
-The login check is done.
+=head2 restore ( [USER_ID] )
 
-Please see L<Egg::Plugin::SessionKit::Auth> in detail.
+Data is returned by the HASH reference when found looking for USER_ID from the 
+attestation data.  0 returns when not found.
 
-=head2 $e->auth->restore([USER_ID]);
-
-The attestation data corresponding to specified ID is returned by the HASH 
-reference.
-
-=head2 setup
-
-It is a method for the start preparation that is called from the controller of 
-the project. * Do not call it from the application.
+=cut
+sub restore {
+	my $auth= shift;
+	my $uid = shift || croak q{ I want 'uid' };
+	my($uname, $const, $separ)=
+	   @{$auth->config}{qw/uid_db_field constant separator/};
+	open FH, $auth->config->{data_path} || die $!;  ## no critic
+	while (<FH>) { chomp;
+		my %user;
+		@user{@$const}= split /$separ/;
+		if ($user{$uname} && $user{$uname} eq $uid) {
+			close FH;
+			return \%user;
+		}
+	}
+	close FH;
+	0;
+}
 
 =head1 SEE ALSO
 
-L<Egg::SessionKit>,
-L<Egg::SessionKit::Auth>,
+L<Egg::Plugin::SessionKit>,
+L<Egg::Plugin::SessionKit::Auth>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::MD5>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::Plain>,
 L<Egg::Release>,
 
 =head1 AUTHOR
@@ -202,10 +133,13 @@ Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2007 by Bee Flag, Corp. E<lt>L<http://egg.bomcity.com/>E<gt>, All Rights Reserved.
+Copyright (C) 2007 by Bee Flag, Corp.
+       E<lt>L<http://egg.bomcity.com/>E<gt>, All Rights Reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.6 or,
 at your option, any later version of Perl 5 you may have available.
 
 =cut
+
+1;

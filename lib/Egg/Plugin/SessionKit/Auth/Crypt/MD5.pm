@@ -1,13 +1,13 @@
-package Egg::Plugin::SessionKit::Auth::Crypt::Plain;
+package Egg::Plugin::SessionKit::Auth::Crypt::MD5;
 #
 # Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>
 #
-# $Id: Plain.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: MD5.pm 146 2007-05-13 18:50:08Z lushe $
 #
 
 =head1 NAME
 
-Egg::Plugin::SessionKit::Auth::Crypt::Plain - password in the plain text is collated.
+Egg::Plugin::SessionKit::Auth::Crypt::MD5 - Password is collated by Digest::MD5.
 
 =head1 SYNOPSIS
 
@@ -15,18 +15,19 @@ Egg::Plugin::SessionKit::Auth::Crypt::Plain - password in the plain text is coll
     .......
     ...
     plugin_session=> {
-      psw_crypt_type => 'Plain',
+      psw_crypt_type => 'MD5',
       .......
       ...
       },
 
 =head1 DESCRIPTION
 
-The password preserved without encrypting it is collated.
+The password is collated by L<Digest::MD5>.
 
 =cut
 use strict;
 use warnings;
+use Digest::MD5;
 
 our $VERSION= '2.00';
 
@@ -39,14 +40,14 @@ The password is collated.
 =cut
 sub psw_check {
 	my($auth, $uid, $psw, $crypt)= @_;
-	$psw eq $crypt ? 1: 0;
+	Digest::MD5::md5_hex($psw) eq $crypt ? 1: 0;
 }
 
 =head1 SEE ALSO
 
 L<Egg::Plugin::SessionKit::Auth>,
 L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
-L<Egg::Plugin::SessionKit::Auth::Crypt::MD5>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::Plain>,
 L<Egg::Release>,
 
 =head1 AUTHOR

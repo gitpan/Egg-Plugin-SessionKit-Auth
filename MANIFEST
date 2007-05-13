@@ -1,7 +1,12 @@
 Build.PL
 Changes
+eg/Example/lib/Example.pm
+eg/Example/lib/Example/DBIC/MySchema.pm
+eg/Example/lib/Example/DBIC/MySchema/Members.pm
+eg/Example/lib/Example/DBIC/MySchema/Sessions.pm
 lib/Egg/Plugin/SessionKit/Auth.pm
 lib/Egg/Plugin/SessionKit/Auth/Crypt/CBC.pm
+lib/Egg/Plugin/SessionKit/Auth/Crypt/MD5.pm
 lib/Egg/Plugin/SessionKit/Auth/Crypt/Plain.pm
 lib/Egg/Plugin/SessionKit/Auth/DBI.pm
 lib/Egg/Plugin/SessionKit/Auth/DBIC.pm
@@ -11,7 +16,9 @@ MANIFEST			This list of files
 META.yml
 README
 t/00_use.t
-t/01_authorized.t
+t/01_auth_file.t
+t/02_auth_dbi.t
+t/03_auth_dbic.t
 t/87_pod_coverage.t
 t/88_perlcritic.t
 t/89_pod.t

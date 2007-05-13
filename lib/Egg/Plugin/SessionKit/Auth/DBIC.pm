@@ -1,249 +1,157 @@
 package Egg::Plugin::SessionKit::Auth::DBIC;
 #
-# Copyright (C) 2007 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: DBIC.pm 70 2007-03-26 02:29:02Z lushe $
+# $Id: DBIC.pm 146 2007-05-13 18:50:08Z lushe $
 #
-use strict;
-use base qw/Egg::Plugin::SessionKit::Auth/;
-
-our $VERSION = '0.02';
-
-sub setup {
-	my($e)= @_;
-	my $sconf= $e->config->{plugin_session} ||= {};
-	my $aconf= $sconf->{auth} ||= {};
-	$aconf->{model_name}
-	  || Egg::Error->throw(qq{ I want setup 'model_name'. });
-	$aconf->{model_name}=~m{^[A-Za-z]+\:[A-Za-z0-9_]+$}
-	  || Egg::Error->throw(qq{ Bad format as model name. });
-	$e->is_model($aconf->{model_name})
-	  || Egg::Error->throw(qq{ '$aconf->{model_name}' model is not found. });
-	$aconf->{uid_db_field}
-	  || Egg::Error->throw(q/Please setup 'uid_db_field'./);
-	$aconf->{psw_db_field}
-	  || Egg::Error->throw(q/Please setup 'psw_db_field'./);
-	$aconf->{active_db_field} ||= 0;
-	$aconf->{uid_db_search_field} ||= $aconf->{uid_db_field};
-	$e->global->{EGG_SESSION_AUTH_RESULT_CODE} ||=
-	  $aconf->{search_attr} ? sub {
-		my $hash= shift || return 0;
-		my %user;
-		while (my($key, $value)= each %$hash) {
-			if (ref($value) eq 'HASH') {
-				@user{keys %$value}= values %$value;
-			} else {
-				$user{$key}= $value;
-			}
-		}
-		return \%user;
-	  }: do {
-		$aconf->{search_attr}= {};
-		sub { @_  };
-	  };
-	$e->global->{EGG_SESSION_AUTH_HANDLER} ||= __PACKAGE__.'::handler';
-	$e->SUPER::setup;
-}
-
-package Egg::Plugin::SessionKit::Auth::DBIC::handler;
-use strict;
-use base qw/Egg::Plugin::SessionKit::Auth::handler/;
-use DBIx::Class::ResultClass::HashRefInflator;
-
-sub login {
-	my($auth, $uid, $psw)= shift->get_login_argument(@_);
-	return 0 unless ($uid && $psw);
-	my $c= $auth->e->config->{plugin_session}{auth};
-	my $user= $auth->restore($uid) || return $auth->error_no_regist;
-	my $crypt= $user->{$c->{psw_db_field}} || return $auth->error_unset_psw;
-	return $auth->error_unactive
-	  if ($c->{active_db_field} && ! $user->{$c->{active_db_field}});
-	return $auth->error_discord_psw unless $auth->psw_check($uid, $psw, $crypt);
-	$user->{$auth->{uid_param_name}}= $user->{$c->{uid_db_field}};
-	$auth->session->{auth_data}= $user;
-	$auth->e->debug_out("# + session auth : Login is succeed.");
-	return $user;
-}
-sub restore {
-	my $auth= shift;
-	my $uid = shift || Egg::Error->throw(q/I want 'uid'/);
-	my $c= $auth->e->config->{plugin_session}{auth};
-	my $uname= shift || $c->{uid_db_field};
-	my $model= $auth->e->model($c->{model_name})
-	  || Egg::Error->throw(qq{ '$c->{model_name}' model is not found. });
-	my $result= $model->search
-	  ({ $c->{uid_db_search_field} => $uid }, $c->{search_attr});
-	$result->result_class('DBIx::Class::ResultClass::HashRefInflator');
-	$auth->e->global->{EGG_SESSION_AUTH_RESULT_CODE}->($result->first);
-}
-
-1;
-
-__END__
 
 =head1 NAME
 
-Egg::Plugin::SessionKit::Auth::DBI - Session attestation plugin that uses DBIx::Class.
+Egg::Plugin::SessionKit::Auth::DBIC - It attests it by DBIC.
 
 =head1 SYNOPSIS
 
-  package MYPROJECT;
-  use strict;
-  use Egg qw/Plugin::SessionKit::Auth::DBIC/;
-
-Configuration.
-
-  plugin_session=> {
+  use Egg qw/ SessionKit::Auth::DBI /;
+  
+  __PACKAGE__->egg_startup(
+    .......
     ...
-    ...
-    auth => {
+    MODEL => [ [ DBIC => {} ] ],
+  
+    plugin_session=> {
+      .......
       ...
-      ...
-      model_name      => 'myapp:fooo',
-      uid_db_field    => 'user_id',
-      psw_db_field    => 'password',
-      active_db_field => 'active',
+      auth => {
+        model_name => 'myschema:members',
+        uid_db_search_field => 'uid',
+        .......
+        ...
+        },
       },
-    },
-
-Example of code.
-
-  my $auth= $e->auth;  # Auth object is acquired.
   
-  if ($auth->user_name) {
-  	print "Login is done.";
-  
-  	my $email= $auth->user->{email} || "";
-  
-  } else {
-  	print "It doesn't login.";
-  }
+    );
 
 =head1 DESCRIPTION
 
-* DBIx::Class::ResultClass::HashRefInflator is used. 
-  This module has not been included before DBIx-Class-0.07999_02.
-  DBIx-Class under use is the latest or confirm it, please.
+It attests it by L<Egg::Model::DBIC>.
 
-Attestation information is acquired by handling the model whom L<Egg::Model::DBIC>
-generated. The name of the model is specified by 'model_name'.
+It collates data from the following tables and it attests it.
 
-And, the field name to refer to ID and the password is specified for 'uid_db_field'
-and 'psw_db_field'.
-
-Moreover, if the data that doesn't want to be attested even if done is included,
-registration specifies the field name to judge it for 'active_db_field'.
-
-* If this field value is false, it doesn't attest it.
-
-It becomes necessary minimum set above in the case of data for the attestation
-of one table composition.
-
-When the relation is done with two or more tables, 'search_attr' for the addition
-parameters such as 'uid_db_search_field' to use it further by SQL statement and
-JOIN is set.
-
-For instance, it becomes the following.
-
-  plugin_session=> {
-    auth => {
-      model_name          => 'myapp:members',
-      uid_db_field        => 'uid',
-      psw_db_field        => 'psw',
-      uid_db_search_field => 'me.uid',
-      search_attr         => { join=> [qw/ profiles /] },
-      },
-    },
-
-Search is done to a specified model by the following syntaxes in this.
-
-  my $result= $auth->e->model('myapp:members')->search(
-    { 'me.uid' => $id },
-    { join=> [qw/ profiles /] },
+  CREATE TABLE members (
+    id       int2      primary key,
+    uid      varchar,
+    psw      varchar,
+    active   int2,
+    email    varchar,
+    nickname varchar
     );
 
-DBIx::Class throws out following SQL to the data base by this syntax.
+* The above-mentioned is one example until becoming empty.
+  If ID and the password that becomes a retrieval key become complete, it is
+  not necessary to learn it from the above-mentioned.
+  As for other data, the thing that uses 'user' method after login succeeds
+  and refers  becomes possible.
 
-  SELECT me.uid, me.psw, me.regist_date, profiles.email, profiles.nickname
-  FROM members me LEFT JOIN profiles profiles ON ( profiles.uid = me.uid )
-  WHERE ( me.uid = ? )
-
-* SQL syntax generated with the content given to the structure and search_attr
-  of Schema is changed.
-
-It comes to be able to refer to the acquired data by 'user' method by being
-preserved in 'auth_data' of the session after it attests it.
-
-  my $nickname= $auth->user->{nickname};
+* L<DBIx::Class::ResultClass::HashRefInflator> is used.
+  As for this module, the package included even if it tries to install it 
+  specifying L<DBIx::Class> from the CPAN module seems not to be downloaded.
+  The included package is L<http://search.cpan.org/dist/DBIx-Class-0.07999_02/>
+  Please refer to.
 
 =head1 CONFIGURATION
 
 =head2 model_name
 
-Name of model used for attestation.
+Name of Model acquired from L<Egg::Model::DBIC>.
 
-=head2 uid_db_field
-
-Name of id field.
-
-B<Default is none.>, Undefined is an error.
-
-=head2 psw_db_field
-
-Name of password field.
-
-B<Default is none.>, Undefined is an error.
-
-=head2 active_db_field
-
-Field name to judge whether acquired data is effective.
-This is evaluated only when defined.
-
-For instance, if this field is undefined even if succeeding in the acquisition of data because 
-of the inquiry of $e->auth->login, false is returned.
-
-B<Default is none.>
+There is no default. Please specify it.
 
 =head2 uid_db_search_field
 
-Name of ID field to pick up data by SQL.
+Name of column used for retrieval.
 
-B<Default is none.>,
+For instance, please specify it when the identifier is necessary etc.
+
+  uid_db_search_field => 'a.uid',
+
+As for default, the value of 'uid_db_field' is copied.
 
 =head2 search_attr
 
-For retrieval parameter. It defines it by the HASH reference.
+The second argument passed to 'Search' method of Model can be set.
 
-B<Default is none.>,
+* The retrieval is done by the following codes.
+
+  my $result= $model->search({ $uid_db_search_field => $uid }, $search_attr);
+
+=cut
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit::Auth/;
+
+our $VERSION = '2.00';
+
+sub _setup {
+	my($e)= @_;
+	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';
+	$e->SUPER::_setup;
+}
+
+package Egg::Plugin::SessionKit::Auth::DBIC::handler;
+use strict;
+use warnings;
+use Carp qw/croak/;
+use base qw/Egg::Plugin::SessionKit::Auth::handler/;
+use DBIx::Class::ResultClass::HashRefInflator;
 
 =head1 METHODS
 
-=head2 $e->auth->login
+=cut
+sub _startup {
+	my($class, $e, $conf)= @_;
+	$class->_initialize($conf);
+	my $model_name= $conf->{model_name}
+	               || die "I want setup 'model_name'.";
+	$model_name=~m{^[A-Za-z]+\:[A-Za-z0-9_]+$}
+	               || die "Bad format as model name.";
+	$e->is_model($model_name)
+	               || die "'$model_name' model is not found.";
+	my $field= $conf->{uid_db_search_field} || $conf->{uid_db_field};
 
-The login check is done.
+	my $attr= $conf->{search_attr} || {};
 
-Please see L<Egg::Plugin::SessionKit::Auth> in detail.
+	no warnings 'redefine';
+	*_search= sub {
+		my($auth, $uid)= @_;
+		$auth->{model} ||= $auth->e->model($model_name);
+		my $result= $auth->{model}->search({ $field => $uid }, $attr);
+		$result->result_class('DBIx::Class::ResultClass::HashRefInflator');
+		$result->first;
+	  };
 
-=head2 $e->auth->restore([USER_ID]);
+	$class->SUPER::_startup($e, $conf);
+}
 
-The attestation data corresponding to specified ID is returned by the HASH 
-reference.
+=head2 restore ( [USER_ID] )
 
-=head2 setup
+Data is returned by the HASH reference when found looking for USER_ID from the 
+attestation data.  0 returns when not found.
 
-It is a method for the start preparation that is called from the controller of 
-the project. * Do not call it from the application.
-
-=head1 BUGS
-
-When wrong 'restore_sql' was set, it suffered from the freezed symptom.
-The current cause of the place cannot specify this error.
+=cut
+sub restore {
+	my $auth= shift;
+	my $uid = shift || croak q{ I want 'uid'. };
+	$auth->_search($uid);
+}
 
 =head1 SEE ALSO
 
-L<Egg::SessionKit>,
-L<Egg::SessionKit::Auth>,
+L<Egg::Plugin::SessionKit>,
+L<Egg::Plugin::SessionKit::Auth>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::MD5>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::Plain>,
+L<Egg::Model::DBIC>,
 L<Egg::Release>,
 
 =head1 AUTHOR
@@ -252,10 +160,13 @@ Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2007 by Bee Flag, Corp. E<lt>L<http://egg.bomcity.com/>E<gt>, All Rights Reserved.
+Copyright (C) 2007 by Bee Flag, Corp.
+       E<lt>L<http://egg.bomcity.com/>E<gt>, All Rights Reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.6 or,
 at your option, any later version of Perl 5 you may have available.
 
 =cut
+
+1;

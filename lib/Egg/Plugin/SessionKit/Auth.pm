@@ -1,157 +1,48 @@
 package Egg::Plugin::SessionKit::Auth;
 #
-# Copyright (C) 2007 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: Auth.pm 70 2007-03-26 02:29:02Z lushe $
+# $Id: Auth.pm 146 2007-05-13 18:50:08Z lushe $
 #
-use strict;
-use warnings;
-use base qw/Egg::Plugin::SessionKit/;
-
-our $VERSION = '0.07';
-
-sub setup {
-	my($e)= @_;
-	my $sconf= $e->config->{plugin_session} ||= {};
-	my $aconf= $sconf->{auth} ||= {};
-	$aconf->{uid_param_name} ||= '__uid';
-	$aconf->{psw_param_name} ||= '__psw';
-	$aconf->{psw_crypt_type} ||= 'Plain';
-	my $handler= $e->global->{EGG_SESSION_AUTH_HANDLER}
-	  || Egg::Error->throw(q{'EGG_SESSION_AUTH_HANDLER' flag is undefined.});
-	$handler->startup($e, $aconf);
-	$e->SUPER::setup;
-}
-sub auth {
-	$_[0]->{auth} ||= do {
-		my($e)= @_;
-		my $handler= $e->global->{EGG_SESSION_AUTH_HANDLER};
-		$handler->new($e);
-	  };
-}
-sub user_name { $_[0]->auth->user_name }
-
-package Egg::Plugin::SessionKit::Auth::handler;
-use strict;
-use warnings;
-use NEXT;
-use base qw/Class::Accessor::Fast/;
-
-__PACKAGE__->mk_accessors( qw/e config messages session errstr/ );
-
-{
-	no strict 'refs';  ## no critic
-	no warnings 'redefine';
-	for my $accessor
-	(qw/uid_undefined psw_undefined
-	  no_regist unactive discord_psw unset_psw secure_onry/)
-	  { *{__PACKAGE__."::error_$accessor"}= sub { $_[0]->error($accessor) } }
-  };
-
-sub startup {
-	my($class, $e, $aconf)= @_;
-	tied(%{$e->global})->global_overwrite(
-	  'EGG_SESSION_AUTH_HTTPS_CHECK' => (
-	    $aconf->{https_only}
-	      ? sub { $_[0]->e->request->secure ? 1: 0 }: sub { 1 }
-	    ),
-	  );
-	my $crypt=
-	  "Egg::Plugin::SessionKit::Auth::Crypt::$aconf->{psw_crypt_type}";
-	$crypt->require or Egg::Error->throw($@);
-	no strict 'refs';  ## no critic
-	unshift @{__PACKAGE__.'::ISA'}, $crypt;
-	$class->NEXT::startup($e, $aconf);
-}
-sub new {
-	my($class, $e)= @_;
-	my $aconf= $e->config->{plugin_session}{auth};
-	my %messages= $aconf->{messages} ? %{$aconf->{messages}}: ();
-	bless {
-	  e=> $e, errstr=> '', config=> $aconf,
-	  session=> $e->session, messages=> \%messages,
-	  uid_param_name=> $aconf->{uid_param_name},
-	  psw_param_name=> $aconf->{psw_param_name},
-	  }, $class;
-}
-sub user
-  { $_[0]->session->{auth_data} || {} }
-sub user_name
-  { $_[0]->{user_name} ||= $_[0]->user->{$_[0]->{uid_param_name}} || 0 }
-sub get_uid_param
-  { $_[0]->e->request->params->{$_[0]->{uid_param_name}} || "" }
-sub get_psw_param
-  { $_[0]->e->request->params->{$_[0]->{psw_param_name}} || "" }
-
-sub get_login_argument {
-	my $auth= shift;
-	$auth->e->global->{EGG_SESSION_AUTH_HTTPS_CHECK}->()
-	  || return $auth->error_secure_onry;
-	my $uid = shift
-	  || $auth->get_uid_param || return $auth->error_uid_undefined;
-	my $psw = shift
-	  || $auth->get_psw_param || return $auth->error_psw_undefined;
-	s/\s+//g for ($uid, $psw);
-	($auth, $uid, $psw);
-}
-sub logout {
-	my($auth)= @_;
-	return 1 unless $auth->user_name;
-	tied(%{$auth->session})->clear;
-	undef($auth->{user_name});
-	$auth->e->debug_out("# + session auth : Logout OK.");
-	return 1;
-}
-sub error {
-	my $auth= shift;
-	$auth->{errstr}= shift || 'internal_error';
-	return 0;
-}
-sub errstr {
-	my($auth)= @_;
-	return $auth->{errstr}
-	  ? ($auth->messages->{$auth->{errstr}} || $auth->{errstr}): 0;
-}
-
-1;
-
-__END__
 
 =head1 NAME
 
-Egg::Plugin::SessionKit::Auth - The authentication function is offered by using the session.
+Egg::Plugin::SessionKit::Auth - Authentication of session base.
 
 =head1 SYNOPSIS
 
-  package MYPROJECT;
-  use strict;
-  use Egg qw/Plugin::SessionKit::Auth::DBI/;
-
-Configuration.
-
-  plugin_session=> {
+  use Egg qw/ SessionKit::Auth::File FillInForm /;
+  
+  __PACKAGE__->egg_startup(
+    .......
     ...
-    ...
-    auth=> {
-      uid_param_name=> '__uid',
-      psw_param_name=> '__psw',
-      psw_crypt_type=> 'Plain',
+  
+    plugin_session=> {
+      .......
+      ...
+      psw_crypt_type => 'MD5',
+      uid_param_name => '__uid',
+      psw_param_name => '__psw',
+      data_path      => '<$e.dir.etc>/members.txt',
+      constant       => [qw/ uid psw active email nickname /],
+      uid_db_field   => 'uid',
+      psw_db_field   => 'psw',
+      active_db_field=> 'active',
       messages=> {
-        uid_undefined => 'Please input user id.',
-        psw_undefined => 'Please input password.',
-        no_regist     => 'There is no registration.',
-        unactive      => 'It is an invalid member.',
-        discord_psw   => 'Mistake of password.',
-        unset_psw     => 'The password is not registered.',
-        secure_onry   => 'Please access it with https.',
-        internal_error=> 'Internal error.',
-        custom_message=> 'The ticket is a disagreement.',
+        uid_undefined => 'Please input ID.',
+        psw_undefined => 'Please input the password.',
+        ...
         },
       },
-    },
+  
+    plugin_fillinform=> {
+      fill_password => 0,
+      ignore_fields => [qw/ ticket /],
+      },
+  
+    );
 
-Example of authentication form.  (For Mason)
+Example of authentication form. (L<Egg::View::Mason>)
 
   % if (my $errmsg= $e->auth->errstr) {
     <div class="error"><% $errmsg %></div>
@@ -165,129 +56,322 @@ Example of authentication form.  (For Mason)
 
 Example of code.
 
-  if ($e->request->is_post && $e->ticket_check) {
+  # The Auth object is acquired.
+  my $auth= $e->auth;
   
-    if ($e->auth->login) {
-      print $e->user_name . " logged it in.";
-    } else {
-      print "Login is refused : ". $e->auth->errstr;
-    }
-  
+  # The user who is logging it in now is checked.
+  if (my $uid= $e->user_name) {
+    print "is login: $uid";
   } else {
-    $e->auth->error('custom_message');
-    print "Stop: ". $e->auth->errstr;
+    print "It doesn't login.";
   }
-
-* Please see the document of Egg::Plugin::SessionKit about the part of the ticket.
-
-* After it logs it in, the state can be checked by confirming $e->auth->user_name.
+  
+  # The input of the login form is checked.
+  if (my $user= $e->auth->login) {
+    ..... code after it login.
+  } else {
+    $e->response->redirect('/auth');
+  }
+  
+  # Refer to user's data after it logs it in.
+  my $user= $e->auth->user;
+  print " NickName : $user->{nickname} \n";
+  print " E-mail   : $user->{email} \n";
+  
+  # The data of an arbitrary user is acquired.
+  if (my $user= $e->auth->restore($user_id)) {
+    print " NickName : $user->{nickname} ";
+  } else {
+    print "There is no registration.";
+  }
+  
+  # Logout.
+  $e->auth->logout;
 
 =head1 DESCRIPTION
 
-The data of the member who succeeds in login is preserved in the session, and the state 
- is continued.
+It is a plugin that offers the attestation function of the session base.
 
-To move this module, should by way of the module that handles the treatment of the 
- authentication data.
+* Please load the subclass into this plugin specifying it.
 
 =head1 CONFIGURATION
 
-plugin_session->{auth} becomes setup of this module.
+Please define it in 'plugin_session' with HASH.
 
 =head2 uid_param_name
 
-id name form for authentication.
+Name used for id field of login form.
 
-B<Default is '__uid'>
+Default is '__uid'.
 
 =head2 psw_param_name
 
-password name form for authentication.
+Name used for password field of login form.
 
-B<Default is '__psw'>
+Default is '__psw'.
+
+=head2 uid_db_field
+
+Name of column used to refer to ID of attestation data.
+
+Default is 'uid'.
+
+=head2 psw_db_field
+
+Name of column used to refer to password of attestation data.
+
+Default is 'psw'.
+
+=head2 active_db_field
+
+Name of column used to refer to effective flag of attestation data.
+
+Default is 'active'.
 
 =head2 psw_crypt_type
 
-The module name to process the code of the password used for the authentication check is specified.
-It is necessary to specify the module that the subordinate of Egg::Plugin::SessionKit::Auth::Crypt has.
+Module name to collate password code of attestation data by processing it.
+This name is supplemented with 'Egg::Plugin::SessionKit::Auth::Crypt'.
 
-B<Default is 'Plain'>
+Default is 'Plain'.
 
-=head2 secure_only
+The following code processing modules are contained in the standard.
 
-The authentication is made to function only at the SSL communication.
+  L<Egg::Plugin::SessionKit::Auth::Crypt::Plain>,
+  L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
+  L<Egg::Plugin::SessionKit::Auth::Crypt::MD5>,
 
-B<Default is none.>
+=head2 message => [MESSAGE_HASH]
 
-=head2 messages
+The message of the login error can be set.
 
-A real message of the key word returned when the error occurs can be set.
-When this setting doesn't exist, the key word is returned as it is.
+Please register the message with the following keys.
 
-B<Default is none.>
+  uid_undefined  ..... Please input id.
+  psw_undefined  ..... Please input the password.
+  no_regist      ..... It is not registered.
+  unactive       ..... It is not effective id.
+  discord_psw    ..... Mistake of password.
+  unset_psw      ..... The password is not set.
+  secure_onry    ..... Please use it by the SSL connection.
+  internal_error ..... The error not anticipated occurred.
+  custom_message ..... Disagreement of ticket id.
 
-It is a key word list.
+=head2 ... etc.
 
-  uid_undefined  : id cannot be acquired from the parameter.
-  psw_undefined  : password cannot be acquired from the parameter.
-  no_regist      : When there is no registration.
-  unactive       : When it is an invalid member.
-  discord_psw    : When the password is wrong.
-  unset_psw      : When there is no password that should be collated.
-  secure_only    : If it is not https, it is not possible to login.
-  internal_error : When the error not anticipated occurs.
+Other settings are different according to the subclass that uses it.
+
+The following subclasses are included in the standard.
+
+  L<Egg::Plugin::SessionKit::Auth::File>,
+  L<Egg::Plugin::SessionKit::Auth::DBI>,
+  L<Egg::Plugin::SessionKit::Auth::DBIC>,
+
+=cut
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit/;
+
+our $VERSION = '2.00';
 
 =head1 METHODS
 
-=head2 $e->auth
+=head2 auth
 
-The object of this module is returned.
+The handler object is returned.
 
-=head2 $e->auth->login([UID], [PASSWORD]);
+=cut
+sub _setup {
+	my($e)= @_;
+	my $handler= $e->{session_auth_handler}
+	          || die q{ Mistake of method of loading plugin. };
+	my $sscf= $e->config->{plugin_session} ||= {};
+	my $conf= $sscf->{auth} ||= {};
+	$handler->_startup($e, $conf);
+	no strict 'refs';  ## no critic.
+	no warnings 'redefine';
+	*{"$e->{namespace}::auth"}=
+	   sub { $_[0]->{auth} ||= $handler->new($_[0], $conf) };
+	$e->next::method;
+}
 
-The authentication check is done.
+=head2 user_name
 
-When [UID] and [PASSWORD] are omitted, the value is acquired from $e->request->params.
+It is an accessor to $e-E<gt>auth-E<gt>user_name.
 
-It comes to be able to acquire id logging it in $e->auth->user_name when succeeding in login.
+=cut
+sub user_name { $_[0]->auth->user_name }
 
-=head2 $e->auth->logout
+package Egg::Plugin::SessionKit::Auth::handler;
+use strict;
+use warnings;
+use Class::C3;
+use UNIVERSAL::require;
+use base qw/Class::Accessor::Fast/;
 
-The logout processing is done.
-The user data of the session is deleted.
+__PACKAGE__->mk_accessors( qw/e config messages session/ );
 
-$e->auth->user_name comes to return false by this.
+=head1 HANDLER METHODS
 
-=head2 $e->auth->user_name  or $e->user_name
+=cut
+{
+	no strict 'refs';  ## no critic
+	no warnings 'redefine';
+	for my $accessor (qw/ uid_undefined psw_undefined
+	  no_regist unactive discord_psw unset_psw secure_onry /)
+	  { *{"error_$accessor"}= sub { $_[0]->error($accessor) } }
+  };
 
-id is returned when logging it in.
+sub _startup {
+	my($class, $e, $conf)= @_;
+	no strict 'refs';  ## no critic
+	no warnings 'redefine';
+	*_https_check= $conf->{https_only}
+	  ? sub { $_[0]->e->request->secure ? 1: 0 }: sub { 1 };
+	my $pkg= "Egg::Plugin::SessionKit::Auth::Crypt::$conf->{psw_crypt_type}";
+	unshift @{"${class}::ISA"}, $pkg;
+	$pkg->require or die $@;
+	@_;
+}
+sub _initialize {
+	my($class, $conf)= @_;
+	$conf->{uid_param_name}  ||= '__uid';
+	$conf->{psw_param_name}  ||= '__psw';
+	$conf->{uid_db_field}    || die qq{ Please setup uid_db_field. };
+	$conf->{psw_db_field}    || die qq{ Please setup psw_db_field. };
+	$conf->{active_db_field} ||= 0;
+	$conf->{psw_crypt_type}  ||= 'Plain';
+	@_;
+}
 
-=head2 $e->auth->user
+=head2 new
 
-Member's data under login can be referred to.
-It is possible to refer if there are data other than id and password.
+Constructor.
 
-Empty HASH is restored even if it doesn't log it in.
+=cut
+sub new {
+	my($class, $e, $conf)= @_;
+	bless {  e => $e,
+	  config   => $conf,
+	  session  => $e->session,
+	  messages => ($conf->{messages} || {}),
+	  errstr   => '',
+	  uid_param_name  => $conf->{uid_param_name},
+	  psw_param_name  => $conf->{psw_param_name},
+	  uid_db_field    => $conf->{uid_db_field},
+	  psw_db_field    => $conf->{psw_db_field},
+	  active_db_field => $conf->{active_db_field},
+	  }, $class;
+}
 
-=head2 $e->errstr
+=head2 login ( [USER_ID], [LOGIN_PASSWD] )
 
-The cause of failure is set when failing in $e->auth->login.
+The attestation data is returned with HASH when collating data and succeeding
+in login.
 
-=head2 $e->get_uid_param
+When USER_ID is omitted, it acquires it from 'get_uid_param' method.
 
-The parameter that relates to the name set to 'uid_param_name' is returned.
+When LOGIN_PASSWD is omitted, it acquires it from 'get_psw_param' method.
 
-=head2 $e->get_psw_param
+* The message is set in 'error' method when failing in login.
+  Please use 'errstr' method to refer.
 
-The parameter that relates to the name set to 'psw_param_name' is returned.
+  if (my $user_data= $e->auth->login) {
+    .....
+    ...
 
-=head2 error([ERROR_KEYWORD]);
+=cut
+sub login {
+	my $auth= shift;
+	my $data= $auth->_get_login_argument(@_) || return 0;
+	my $user= $auth->restore($data->[0])
+	       || return $auth->error_no_regist;
+	my $crypt= $user->{$auth->{psw_db_field}}
+	       || return $auth->error_unset_psw;
+	return $auth->error_unactive
+	  if ($auth->{active_db_field} && ! $user->{$auth->{active_db_field}});
+	return $auth->error_discord_psw unless $auth->psw_check(@$data, $crypt);
+	my $uid= $user->{$auth->{uid_param_name}}= $user->{$auth->{uid_db_field}};
+	$auth->session->{auth_data}= $user;
+	$auth->e->debug_out("# + session auth : [$uid] - Login is succeed.");
+	$user;
+}
 
-When failing in $e->auth->login, the key word is set by this function.
-This method need not be called directly usually.
+=head2 logout
 
-The method for the reduction of the mistake when the key word is set is prepared.
-If this method is used, the mistake is reported at once.
+It logs out if it is login.
+
+=cut
+sub logout {
+	my($auth)= @_;
+	my $uid= $auth->user_name || return 1;
+	tied(%{$auth->session})->clear;
+	undef($auth->{user_name});
+	$auth->e->debug_out("# + session auth : [$uid] - Logout OK.");
+	return 1;
+}
+
+=head2 user
+
+User's registration data is returned by the HASH reference if it is logging it in.
+
+  my $nickname= $e->auth->user->{nickname};
+
+=cut
+sub user { $_[0]->session->{auth_data} || {} }
+
+=head2 user_name
+
+User ID that succeeds in the attestation is returned.
+
+* 0 returns when failing in the attestation.
+
+=cut
+sub user_name {
+	$_[0]->{user_name} ||= $_[0]->user->{$_[0]->{uid_param_name}} || 0;
+}
+
+=head2 get_uid_param
+
+User ID is returned from the form data based on 'uid_param_name'.
+
+=cut
+sub get_uid_param {
+	$_[0]->e->request->params->{$_[0]->{uid_param_name}} || "";
+}
+
+=head2 get_psw_param
+
+The login password is returned from the form data based on 'psw_param_name'.
+
+=cut
+sub get_psw_param {
+	$_[0]->e->request->params->{$_[0]->{psw_param_name}} || "";
+}
+
+=head2 error ( [ERROR_MESSAGE] )
+
+The error message is stored.
+
+=cut
+sub error {
+	my $auth= shift;
+	$auth->{errstr}= shift || 'internal_error';
+	return 0;
+}
+
+=head2 errstr
+
+The error set by 'error' method is returned by the message for the screen output.
+
+=cut
+sub errstr {
+	my($auth)= @_;
+	return $auth->{errstr}
+	  ? ($auth->messages->{$auth->{errstr}} || $auth->{errstr}): 0;
+}
+
+=head2 ... etc. ( error methods ),
 
   error_uid_undefined
   error_psw_undefined
@@ -296,18 +380,47 @@ If this method is used, the mistake is reported at once.
   error_discord_psw
   error_unset_psw
 
-=head2 setup
+The above-mentioned method is contained as an accessor of 'error' method.
+A prescribed error is set only by calling this method.
+The above-mentioned method always returns 0.
 
-It is a method for the start preparation that is called from the controller of 
-the project. * Do not call it from the application.
+=cut
+
+sub _get_login_argument {
+	my $auth= shift;
+	$auth->_https_check || return $auth->error_secure_onry;
+	my $uid= shift || $auth->get_uid_param
+	      || return $auth->error_uid_undefined;
+	my $psw= shift || $auth->get_psw_param
+	      || return $auth->error_psw_undefined;
+	s/\s+//g for ($uid, $psw);
+	[$uid, $psw];
+}
+
+=head1 WARNING
+
+After the attestation succeeds, the acquired data is preserved in the session.
+This data becomes invalid the session or is effective until being logged out.
+Therefore, it is not in real data, and comes to come to refer to the data of
+the session after login succeeds.
+
+This method is high-speed treatable of a frequent attestation, and there is a
+thing that the contradiction of data is generated when real data is corrected.
+
+To our regret, the method of settlement is not being offered in a present 
+version.
 
 =head1 SEE ALSO
 
-L<Egg::SessionKit::Auth>,
-L<Egg::SessionKit::Auth::DBI>,
-L<Egg::SessionKit::Auth::File>,
-L<Egg::SessionKit::Auth::Crypt::CBC>,
-L<Egg::SessionKit::Auth::Crypt::Plain>,
+L<Egg::Plugin::SessionKit>,
+L<Egg::Plugin::SessionKit::Auth::DBI>,
+L<Egg::Plugin::SessionKit::Auth::DBIC>,
+L<Egg::Plugin::SessionKit::Auth::File>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::MD5>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::Plain>,
+L<Egg::Model::DBI>,
+L<Egg::Model::DBIC>,
 L<Egg::Release>,
 
 =head1 AUTHOR
@@ -316,7 +429,8 @@ Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2007 by Bee Flag, Corp. E<lt>L<http://egg.bomcity.com/>E<gt>, All Rights Reserved.
+Copyright (C) 2007 by Bee Flag, Corp.
+       E<lt>L<http://egg.bomcity.com/>E<gt>, All Rights Reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.6 or,
@@ -324,3 +438,4 @@ at your option, any later version of Perl 5 you may have available.
 
 =cut
 
+1;

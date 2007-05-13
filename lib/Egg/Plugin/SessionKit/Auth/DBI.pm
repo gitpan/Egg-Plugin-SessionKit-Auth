@@ -1,194 +1,149 @@
 package Egg::Plugin::SessionKit::Auth::DBI;
 #
-# Copyright (C) 2007 Bee Flag, Corp, All Rights Reserved.
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: DBI.pm 70 2007-03-26 02:29:02Z lushe $
+# $Id: DBI.pm 146 2007-05-13 18:50:08Z lushe $
 #
-use strict;
-use base qw/Egg::Plugin::SessionKit::Auth/;
-
-our $VERSION = '0.03';
-
-sub setup {
-	my($e)= @_;
-	$e->isa('Egg::Plugin::DBI::CommitOK')
-	  || Egg::Error->throw(q/Please build in Egg::Plugin::DBI::CommitOK./);
-	my $sconf= $e->config->{plugin_session} ||= {};
-	my $aconf= $sconf->{auth} ||= {};
-	$aconf->{dbname} ||= 'members';
-	$aconf->{uid_db_field}
-	  || Egg::Error->throw(q/Please setup uid_db_field./);
-	$aconf->{psw_db_field}
-	  || Egg::Error->throw(q/Please setup psw_db_field./);
-	$aconf->{restore_sql}
-	  ||= q{ SELECT * FROM <# dbname #> WHERE <# uid_db_field #> = ? };
-	$aconf->{active_db_field} ||= 0;
-	$aconf->{restore_sql}
-	  =~s{<\#\s+(.+?)\s+\#>} [ $aconf->{$1} ? $aconf->{$1}: "" ]ge;
-	$e->global->{EGG_SESSION_AUTH_HANDLER} ||= __PACKAGE__.'::handler';
-	$e->SUPER::setup;
-}
-
-package Egg::Plugin::SessionKit::Auth::DBI::handler;
-use strict;
-use base qw/Egg::Plugin::SessionKit::Auth::handler/;
-
-my @move_items= qw/uid_db_field psw_db_field active_db_field restore_sql/;
-
-sub new {
-	my $auth= shift->SUPER::new(@_);
-	@{$auth}{@move_items}= @{$auth->config}{@move_items};
-	$auth;
-}
-sub login {
-	my($auth, $uid, $psw)= shift->get_login_argument(@_);
-	return 0 unless ($uid && $psw);
-	my $user= $auth->restore($uid) || return $auth->error_no_regist;
-	my $crypt= $user->{$auth->{psw_db_field}} || return $auth->error_unset_psw;
-	return $auth->error_unactive
-	  if ($auth->{active_db_field} && ! $user->{$auth->{active_db_field}});
-	return $auth->error_discord_psw unless $auth->psw_check($uid, $psw, $crypt);
-	$user->{$auth->{uid_param_name}}= $user->{$auth->{uid_db_field}};
-	$auth->session->{auth_data}= $user;
-	$auth->e->debug_out("# + session auth : Login is succeed.");
-	return $user;
-}
-sub restore {
-	my $auth = shift;
-	my $uid  = shift || Egg::Error->throw(q/I want 'uid'/);
-	my $uname= shift || $auth->{uid_db_field};
-	my $sql  = shift || $auth->{restore_sql};
-	my %bind;
-	my $sth= $auth->e->dbh->prepare($sql);
-	$sth->execute($uid);
-	$sth->bind_columns(\(@bind{map{$_}@{$sth->{NAME_lc}}}));
-	$sth->fetch; $sth->finish;
-	return 0 unless $bind{$uname};
-	$auth->e->debug_out("# + session auth : restore member is succeed.");
-	\%bind;
-}
-
-1;
-
-__END__
 
 =head1 NAME
 
-Egg::Plugin::SessionKit::Auth::DBI - Data is acquired and authentication from the data base.
+Egg::Plugin::SessionKit::Auth::DBI - It attests it by DBI.
 
 =head1 SYNOPSIS
 
-  package MYPROJECT;
-  use strict;
-  use Egg qw/Plugin::SessionKit::Auth::DBI/;
-
-Configuration.
-
-  plugin_session=> {
+  use Egg qw/ SessionKit::Auth::DBI /;
+  
+  __PACKAGE__->egg_startup(
+    .......
     ...
-    ...
-    auth=> {
+    MODEL => [ [ DBI => {
+      .......
       ...
+      } ] ],
+  
+    plugin_session=> {
+      .......
       ...
-      dbname         => 'member_data',
-      uid_db_field   => 'user_id',
-      psw_db_field   => 'password',
-      active_db_field=> 'active',
-      restore_sql    => 'SELECT * FROM <# dbname #> a JOIN profile b'
-                     . ' ON a.<# uid_db_field #> = b.<# uid_db_field #>'
-                     . ' WHERE a.<# uid_db_field #> = ? ',
-    },
-  },
-
-Example of code.
-
-  my $auth= $e->auth;  # Auth object is acquired.
+      auth => {
+        dbname      => 'members',
+        restore_sql => q{ SELECT * FROM <$e.dbname> a }
+                    .  q{ LEFT OUTER JOIN profile b ON a.uid = b.uid }
+                    .  q{ WHERE a.uid = ? },
+        .......
+        ...
+        },
+      },
   
-  if ($auth->user_name) {
-  	print "Login is done.";
-  
-  	my $email= $auth->user->{email} || "";
-  
-  } else {
-  	print "It doesn't login.";
-  }
-
+    );
 
 =head1 DESCRIPTION
 
-Data is acquired and attested by SQL set to 'restore_sql'.
+It attests it by L<Egg::Model::DBI>.
 
-E<lt># configuration name #E<gt> in 'restore_sql' can be substituted by other set values.
+It collates data from the following tables and it attests it.
 
-The data acquired here can be referred to through $e->auth->user when login succeeds.
+  CREATE TABLE members (
+    id       int2      primary key,
+    uid      varchar,
+    psw      varchar,
+    active   int2,
+    email    varchar,
+    nickname varchar
+    );
+
+* The above-mentioned is one example until becoming empty.
+  If ID and the password that becomes a retrieval key become complete, it is
+  not necessary to learn it from the above-mentioned.
+  As for other data, the thing that uses 'user' method after login succeeds
+  and refers becomes possible.
+
+Please refer to the document of L<Egg::Plugin::SessionKit::Auth>.
 
 =head1 CONFIGURATION
 
 =head2 dbname
 
-Table name of authentication data.
+Table name of attestation data.
 
-B<Default is 'members'>
-
-=head2 uid_db_field
-
-Name of id field
-
-B<Default is none.>, Undefined is an error.
-
-=head2 psw_db_field
-
-B<Default is none.>, Undefined is an error.
-
-=head2 active_db_field
-
-Field name to judge whether acquired data is effective.
-This is evaluated only when defined.
-
-For instance, if this field is undefined even if succeeding in the acquisition of data because 
-of the inquiry of $e->auth->login, false is returned.
-
-B<Default is none.>
+Default is 'members'.
 
 =head2 restore_sql
 
-SQL sentence to acquire attestation data.
+SQL sentence to retrieve data.
 
-Substitution that uses E<lt># configuration name #E<gt> can be done.
+* $e-E<gt>replace is done.
 
-I think a little complex SELECT sentence to be treatable mostly well.
-However, it should be SQL sentence that at least acquires ID and password.
+Default is ' SELECT * FROM <$e.dbname> WHERE <$e.uid_db_field> = ? '.
 
-B<Default is> 'SELECT * FROM <# dbname #> WHERE <# uid_db_field #> = ?'
+=cut
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit::Auth/;
+
+our $VERSION = '2.00';
+
+sub _setup {
+	my($e)= @_;
+	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';
+	$e->SUPER::_setup;
+}
+sub _finalize {
+	my($e)= @_;
+	$e->{session_auth_sth}->finish if $e->{session_auth_sth};
+	$e->next::method;
+}
+*_finalize_error= \&_finalize;
+
+package Egg::Plugin::SessionKit::Auth::DBI::handler;
+use strict;
+use warnings;
+use Carp qw/croak/;
+use base qw/Egg::Plugin::SessionKit::Auth::handler/;
 
 =head1 METHODS
 
-=head2 $e->auth->login
+=cut
+sub _startup {
+	my($class, $e, $conf)= @_;
+	$class->_initialize($conf);
+	$conf->{dbname} ||= 'members';
+	my $sql= $conf->{restore_sql}
+	     ||= q{ SELECT * FROM <$e.dbname> WHERE <$e.uid_db_field> = ? };
+	$e->replace($conf, \$sql);
+	no warnings 'redefine';
+	*_prepare= sub {
+		my($auth)= @_;
+		$auth->{dbh} ||= $auth->e->model('DBI')->dbh;
+		$auth->e->{session_auth_sth} ||= $auth->{dbh}->prepare($sql);
+	  };
+	$class->SUPER::_startup($e, $conf);
+}
 
-The login check is done.
+=head2 restore ( [USER_ID] )
 
-Please see L<Egg::Plugin::SessionKit::Auth> in detail.
+Data is returned by the HASH reference when found looking for USER_ID from the 
+attestation data.  0 returns when not found.
 
-=head2 $e->auth->restore([USER_ID]);
-
-The attestation data corresponding to specified ID is returned by the HASH 
-reference.
-
-=head2 setup
-
-It is a method for the start preparation that is called from the controller of 
-the project. * Do not call it from the application.
-
-=head1 BUGS
-
-When wrong 'restore_sql' was set, it suffered from the freezed symptom.
-The current cause of the place cannot specify this error.
+=cut
+sub restore {
+	my $auth= shift;
+	my $uid = shift || croak q{ I want 'uid' };
+	my %bind;
+	my $sth= $auth->_prepare;
+	$sth->execute($uid);
+	$sth->bind_columns(\(@bind{map{$_}@{$sth->{NAME_lc}}}));
+	$sth->fetch;
+	$bind{$auth->{uid_db_field}} ? \%bind: 0;
+}
 
 =head1 SEE ALSO
 
-L<Egg::SessionKit>,
-L<Egg::SessionKit::Auth>,
+L<Egg::Plugin::SessionKit>,
+L<Egg::Plugin::SessionKit::Auth>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::MD5>,
+L<Egg::Plugin::SessionKit::Auth::Crypt::Plain>,
+L<Egg::Model::DBI>,
 L<Egg::Release>,
 
 =head1 AUTHOR
@@ -204,3 +159,5 @@ it under the same terms as Perl itself, either Perl version 5.8.6 or,
 at your option, any later version of Perl 5 you may have available.
 
 =cut
+
+1;
