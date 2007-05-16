@@ -1,6 +1,6 @@
 ---
 name: Egg-Plugin-SessionKit-Auth
-version: 2.00
+version: 2.01
 author:
   - 'Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>'
 abstract: Authentication of session base.
@@ -19,29 +19,29 @@ requires:
 provides:
   Egg::Plugin::SessionKit::Auth:
     file: lib/Egg/Plugin/SessionKit/Auth.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::Crypt::CBC:
     file: lib/Egg/Plugin/SessionKit/Auth/Crypt/CBC.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::Crypt::MD5:
     file: lib/Egg/Plugin/SessionKit/Auth/Crypt/MD5.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::Crypt::Plain:
     file: lib/Egg/Plugin/SessionKit/Auth/Crypt/Plain.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::DBI:
     file: lib/Egg/Plugin/SessionKit/Auth/DBI.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::DBI::handler:
     file: lib/Egg/Plugin/SessionKit/Auth/DBI.pm
   Egg::Plugin::SessionKit::Auth::DBIC:
     file: lib/Egg/Plugin/SessionKit/Auth/DBIC.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::DBIC::handler:
     file: lib/Egg/Plugin/SessionKit/Auth/DBIC.pm
   Egg::Plugin::SessionKit::Auth::File:
     file: lib/Egg/Plugin/SessionKit/Auth/File.pm
-    version: 2.00
+    version: 2.01
   Egg::Plugin::SessionKit::Auth::File::handler:
     file: lib/Egg/Plugin/SessionKit/Auth/File.pm
   Egg::Plugin::SessionKit::Auth::handler:

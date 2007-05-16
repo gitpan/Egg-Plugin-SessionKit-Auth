@@ -2,8 +2,12 @@ package Egg::Plugin::SessionKit::Auth::Crypt::CBC;
 #
 # Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>
 #
-# $Id: CBC.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: CBC.pm 151 2007-05-16 22:51:44Z lushe $
 #
+use strict;
+use warnings;
+
+our $VERSION= '2.01';
 
 =head1 NAME
 
@@ -25,12 +29,6 @@ Egg::Plugin::SessionKit::Auth::Crypt::CBC - Password is collated by Crypt::CBC.
 The password is collated by L<Egg::Plugin::Crypt::CBC>.
 
 * Please load L<Egg::Plugin::Crypt::CBC>.
-
-=cut
-use strict;
-use warnings;
-
-our $VERSION= '2.00';
 
 =head1 METHODS
 

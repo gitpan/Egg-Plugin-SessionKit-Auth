@@ -2,8 +2,13 @@ package Egg::Plugin::SessionKit::Auth::File;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: File.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: File.pm 151 2007-05-16 22:51:44Z lushe $
 #
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit::Auth/;
+
+our $VERSION = '2.01';
 
 =head1 NAME
 
@@ -61,12 +66,6 @@ List of name that allocates delimited data.
   constant => [qw/ member_code uid psw active age address ... /],
 
 =cut
-use strict;
-use warnings;
-use base qw/Egg::Plugin::SessionKit::Auth/;
-
-our $VERSION = '2.00';
-
 sub _setup {
 	my($e)= @_;
 	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';

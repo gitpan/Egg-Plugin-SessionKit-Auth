@@ -2,8 +2,13 @@ package Egg::Plugin::SessionKit::Auth::Crypt::MD5;
 #
 # Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>
 #
-# $Id: MD5.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: MD5.pm 151 2007-05-16 22:51:44Z lushe $
 #
+use strict;
+use warnings;
+use Digest::MD5;
+
+our $VERSION= '2.01';
 
 =head1 NAME
 
@@ -23,13 +28,6 @@ Egg::Plugin::SessionKit::Auth::Crypt::MD5 - Password is collated by Digest::MD5.
 =head1 DESCRIPTION
 
 The password is collated by L<Digest::MD5>.
-
-=cut
-use strict;
-use warnings;
-use Digest::MD5;
-
-our $VERSION= '2.00';
 
 =head1 METHODS
 

@@ -1,5 +1,11 @@
 Revision history for Perl extension Egg::Plugin::SessionKit::Auth.
 
+2.01  2007/05/17
+	- bugfix for Egg::Plugin::SessionKit::Auth::DBI.
+
+2.00  2007/05/14
+	- Corresponded to Egg::Release v2.00.
+
 0.06  2007/03/02
 	- It improved to CPAN.
 

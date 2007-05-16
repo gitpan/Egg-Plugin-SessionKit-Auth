@@ -2,8 +2,13 @@ package Egg::Plugin::SessionKit::Auth::DBIC;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: DBIC.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: DBIC.pm 151 2007-05-16 22:51:44Z lushe $
 #
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit::Auth/;
+
+our $VERSION = '2.01';
 
 =head1 NAME
 
@@ -85,12 +90,6 @@ The second argument passed to 'Search' method of Model can be set.
   my $result= $model->search({ $uid_db_search_field => $uid }, $search_attr);
 
 =cut
-use strict;
-use warnings;
-use base qw/Egg::Plugin::SessionKit::Auth/;
-
-our $VERSION = '2.00';
-
 sub _setup {
 	my($e)= @_;
 	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';

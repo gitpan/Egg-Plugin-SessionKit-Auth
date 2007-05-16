@@ -2,8 +2,13 @@ package Egg::Plugin::SessionKit::Auth::DBI;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: DBI.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: DBI.pm 151 2007-05-16 22:51:44Z lushe $
 #
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit::Auth/;
+
+our $VERSION = '2.01';
 
 =head1 NAME
 
@@ -76,12 +81,6 @@ SQL sentence to retrieve data.
 Default is ' SELECT * FROM <$e.dbname> WHERE <$e.uid_db_field> = ? '.
 
 =cut
-use strict;
-use warnings;
-use base qw/Egg::Plugin::SessionKit::Auth/;
-
-our $VERSION = '2.00';
-
 sub _setup {
 	my($e)= @_;
 	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';
@@ -92,7 +91,11 @@ sub _finalize {
 	$e->{session_auth_sth}->finish if $e->{session_auth_sth};
 	$e->next::method;
 }
-*_finalize_error= \&_finalize;
+sub _finalize_error {
+	my($e)= @_;
+	$e->{session_auth_sth}->finish if $e->{session_auth_sth};
+	$e->next::method;
+}
 
 package Egg::Plugin::SessionKit::Auth::DBI::handler;
 use strict;

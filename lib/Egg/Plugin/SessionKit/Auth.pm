@@ -2,8 +2,13 @@ package Egg::Plugin::SessionKit::Auth;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: Auth.pm 146 2007-05-13 18:50:08Z lushe $
+# $Id: Auth.pm 152 2007-05-16 22:55:52Z lushe $
 #
+use strict;
+use warnings;
+use base qw/Egg::Plugin::SessionKit/;
+
+our $VERSION = '2.01';
 
 =head1 NAME
 
@@ -167,13 +172,6 @@ The following subclasses are included in the standard.
   L<Egg::Plugin::SessionKit::Auth::DBI>,
   L<Egg::Plugin::SessionKit::Auth::DBIC>,
 
-=cut
-use strict;
-use warnings;
-use base qw/Egg::Plugin::SessionKit/;
-
-our $VERSION = '2.00';
-
 =head1 METHODS
 
 =head2 auth
@@ -188,10 +186,8 @@ sub _setup {
 	my $sscf= $e->config->{plugin_session} ||= {};
 	my $conf= $sscf->{auth} ||= {};
 	$handler->_startup($e, $conf);
-	no strict 'refs';  ## no critic.
 	no warnings 'redefine';
-	*{"$e->{namespace}::auth"}=
-	   sub { $_[0]->{auth} ||= $handler->new($_[0], $conf) };
+	*auth= sub { $_[0]->{auth} ||= $handler->new($_[0], $conf) };
 	$e->next::method;
 }
 
