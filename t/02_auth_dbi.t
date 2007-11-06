@@ -2,10 +2,10 @@
 use Test::More qw/no_plan/;
 use Egg::Helper::VirtualTest;
 
-my $dsn   = $ENV{EGG_RDBMS_DSN}        || "";
-my $uid   = $ENV{EGG_RDBMS_USER}       || "";
-my $psw   = $ENV{EGG_RDBMS_PASSWORD}   || "";
-my $table = $ENV{EGG_RDBMS_TEST_TABLE} || 'egg_plugin_auth_table';
+my $dsn   = $ENV{EGG_RDBMS_DSN}      || "";
+my $uid   = $ENV{EGG_RDBMS_USER}     || "";
+my $psw   = $ENV{EGG_RDBMS_PASSWORD} || "";
+my $table = $ENV{EGG_SESSION_AUTH_TABLE} || 'session_auth';
 
 SKIP: {
 skip q{ Data base is not setup. } unless ($dsn and $uid);
@@ -14,13 +14,13 @@ eval{ require DBI };
 skip q{ 'DBI' module is not installed. } if $@;
 
 my $v= Egg::Helper::VirtualTest->new( prepare => {
-  controller => { egg_includes => [qw/ SessionKit::Auth::DBI /] },
+  controller => { egg_includes => [qw/ DBI::Transaction SessionKit::Auth::DBI /] },
   config => {
     MODEL=> [ [ DBI=> {
       dsn      => $dsn,
       user     => $uid,
       password => $psw,
-      option   => { AutoCommit=> 1, RaiseError=> 1 },
+      options  => { AutoCommit=> 1, RaiseError=> 1 },
       } ] ],
     plugin_session => { auth=> {
         dbname          => $table,
@@ -103,9 +103,9 @@ $request->params->{__uid}= 'foo';
 $request->params->{__psw}= '12345';
 
 ok my $user= $auth->login;
-ok $user eq $e->session->{auth_data};
+ok $user eq $auth->user_data;
 ok $auth->user;
-ok $auth->user eq $e->session->{auth_data};
+ok $auth->user eq $auth->user_data;
 ok $auth->user_name;
 ok $e->user_name;
 ok $e->user_name eq 'foo';

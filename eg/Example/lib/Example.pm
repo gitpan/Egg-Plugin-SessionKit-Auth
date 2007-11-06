@@ -30,11 +30,13 @@ __PACKAGE__->egg_startup(
   MODEL => [ [ DBIC => {} ] ],
 
   plugin_session => {
-    base  => [ DBIC => {
-      schema_name=> 'MySchema',
-      source_name=> 'Sessions',
-      } ],
-    store => 'Base64',
+    component=> [
+      [ 'Base::DBIC' => {
+        schema_name=> 'MySchema',
+        source_name=> 'Sessions',
+        } ],
+      qw/ Bind::Cookie Store::Base64 /,
+      ],
     auth  => {
       model_name      => 'myschema:members',
       uid_db_field    => 'uid',

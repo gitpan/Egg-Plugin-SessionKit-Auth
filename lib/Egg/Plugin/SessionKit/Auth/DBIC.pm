@@ -2,7 +2,7 @@ package Egg::Plugin::SessionKit::Auth::DBIC;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: DBIC.pm 151 2007-05-16 22:51:44Z lushe $
+# $Id: DBIC.pm 215 2007-11-06 23:17:11Z lushe $
 #
 use strict;
 use warnings;
@@ -108,7 +108,6 @@ use DBIx::Class::ResultClass::HashRefInflator;
 =cut
 sub _startup {
 	my($class, $e, $conf)= @_;
-	$class->_initialize($conf);
 	my $model_name= $conf->{model_name}
 	               || die "I want setup 'model_name'.";
 	$model_name=~m{^[A-Za-z]+\:[A-Za-z0-9_]+$}

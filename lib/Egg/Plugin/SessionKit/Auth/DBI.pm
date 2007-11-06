@@ -2,7 +2,7 @@ package Egg::Plugin::SessionKit::Auth::DBI;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: DBI.pm 151 2007-05-16 22:51:44Z lushe $
+# $Id: DBI.pm 215 2007-11-06 23:17:11Z lushe $
 #
 use strict;
 use warnings;
@@ -108,16 +108,20 @@ use base qw/Egg::Plugin::SessionKit::Auth::handler/;
 =cut
 sub _startup {
 	my($class, $e, $conf)= @_;
-	$class->_initialize($conf);
 	$conf->{dbname} ||= 'members';
 	my $sql= $conf->{restore_sql}
 	     ||= q{ SELECT * FROM <$e.dbname> WHERE <$e.uid_db_field> = ? };
 	$e->replace($conf, \$sql);
+	my $dbh= $e->model('DBI')->dbh;
 	no warnings 'redefine';
 	*_prepare= sub {
 		my($auth)= @_;
-		$auth->{dbh} ||= $auth->e->model('DBI')->dbh;
-		$auth->e->{session_auth_sth} ||= $auth->{dbh}->prepare($sql);
+		if ($dbh eq $auth->e->model('DBI')->dbh) {
+			$auth->e->{session_auth_sth} ||= $dbh->prepare($sql);
+		} else {
+			$dbh= $auth->e->model('DBI')->dbh;
+			$auth->e->{session_auth_sth}= $dbh->prepare($sql);
+		}
 	  };
 	$class->SUPER::_startup($e, $conf);
 }

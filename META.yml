@@ -1,25 +1,24 @@
 ---
 name: Egg-Plugin-SessionKit-Auth
-version: 2.01
+version: 2.10
 author:
-  - 'Masatoshi Mizuno E<lt>mizunoE<64>bomcity.comE<gt>'
-abstract: Authentication of session base.
+  - 'Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>'
+abstract: lib/Egg/Plugin/SessionKit/Auth.pm
 license: perl
 resources:
   license: http://dev.perl.org/licenses/
 requires:
-  Egg::Model::DBIC: 2
-  Egg::Plugin::Crypt::CBC: 2
-  Egg::Plugin::SessionKit: 2
-  Egg::Release: 2
+  Egg::Plugin::Crypt::CBC: 2.02
+  Egg::Plugin::SessionKit: 2.1
+  Egg::Release: 2.25
+  Test::More: 0
   Test::Perl::Critic: 0
   Test::Pod: 0
   Test::Pod::Coverage: 0
-  Test::Simple: 0
 provides:
   Egg::Plugin::SessionKit::Auth:
     file: lib/Egg/Plugin/SessionKit/Auth.pm
-    version: 2.01
+    version: 2.10
   Egg::Plugin::SessionKit::Auth::Crypt::CBC:
     file: lib/Egg/Plugin/SessionKit/Auth/Crypt/CBC.pm
     version: 2.01

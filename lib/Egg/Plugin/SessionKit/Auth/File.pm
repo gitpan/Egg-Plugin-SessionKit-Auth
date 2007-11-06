@@ -2,7 +2,7 @@ package Egg::Plugin::SessionKit::Auth::File;
 #
 # Masatoshi Mizuno E<lt>lusheE<64>cpan.orgE<gt>
 #
-# $Id: File.pm 151 2007-05-16 22:51:44Z lushe $
+# $Id: File.pm 215 2007-11-06 23:17:11Z lushe $
 #
 use strict;
 use warnings;
@@ -66,6 +66,7 @@ List of name that allocates delimited data.
   constant => [qw/ member_code uid psw active age address ... /],
 
 =cut
+
 sub _setup {
 	my($e)= @_;
 	$e->{session_auth_handler} ||= __PACKAGE__.'::handler';
@@ -75,15 +76,12 @@ sub _setup {
 package Egg::Plugin::SessionKit::Auth::File::handler;
 use strict;
 use warnings;
+use File::Read;
 use Carp qw/croak/;
 use base qw/Egg::Plugin::SessionKit::Auth::handler/;
 
-=head1 METHODS
-
-=cut
 sub _startup {
 	my($class, $e, $conf)= @_;
-	$class->_initialize($conf);
 	$conf->{constant} || die q{ Please setup constant. };
 	ref($conf->{constant}) eq 'ARRAY'
 	   || die q{ Please set constant by the ARRAY reference. };
@@ -92,33 +90,32 @@ sub _startup {
 	$conf->{separator} ||= "\t";
 	$class->SUPER::_startup($e, $conf);
 }
+sub restore {
+	my $auth= shift;
+	my $uid = shift || croak q{ I want 'uid' };
+	my($uname, $const, $separ)=
+	   @{$auth->config}{qw/uid_db_field constant separator/};
+	my $members= read_file
+	   ({ skip_comments=> 1, skip_blanks=> 1 }, $auth->config->{data_path});
+	$members=~s{^\s+} [];
+	for (split /\s*\r?\n\s*/, $members) {
+		my %user;
+		@user{@$const}= split /$separ/;
+		return \%user if ($user{$uname} and $user{$uname} eq $uid);
+	}
+	return 0;
+}
+
+=head1 METHODS
 
 =head2 restore ( [USER_ID] )
 
 Data is returned by the HASH reference when found looking for USER_ID from the 
 attestation data.  0 returns when not found.
 
-=cut
-sub restore {
-	my $auth= shift;
-	my $uid = shift || croak q{ I want 'uid' };
-	my($uname, $const, $separ)=
-	   @{$auth->config}{qw/uid_db_field constant separator/};
-	open FH, $auth->config->{data_path} || die $!;  ## no critic
-	while (<FH>) { chomp;
-		my %user;
-		@user{@$const}= split /$separ/;
-		if ($user{$uname} && $user{$uname} eq $uid) {
-			close FH;
-			return \%user;
-		}
-	}
-	close FH;
-	0;
-}
-
 =head1 SEE ALSO
 
+L<File::Read>,
 L<Egg::Plugin::SessionKit>,
 L<Egg::Plugin::SessionKit::Auth>,
 L<Egg::Plugin::SessionKit::Auth::Crypt::CBC>,
